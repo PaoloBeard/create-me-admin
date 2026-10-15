@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WordPress Admin SQL Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      font-size: 15px;
+      background: #f4f4f6;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 16px 64px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e2e2e6;
+      border-radius: 12px;
+      padding: 40px 44px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.07);
+    }
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #888;
+      margin-bottom: 32px;
+    }
+    form { display: flex; flex-direction: column; gap: 20px; }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: 13px; font-weight: 500; color: #444; }
+    input {
+      border: 1px solid #d4d4d8;
+      border-radius: 7px;
+      padding: 9px 12px;
+      font: inherit;
+      font-size: 14px;
+      color: #111;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      background: #fff;
+    }
+    input:focus {
+      border-color: #6d5fff;
+      box-shadow: 0 0 0 3px rgba(109,95,255,.12);
+    }
+    input.invalid {
+      border-color: #e03131;
+      box-shadow: 0 0 0 3px rgba(224,49,49,.1);
+    }
+    .pw-wrap { position: relative; display: flex; align-items: center; }
+    .pw-wrap input { flex: 1; padding-right: 44px; }
+    .toggle-pw {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #aaa;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      transition: color .15s;
+      line-height: 0;
+    }
+    .toggle-pw:hover { color: #555; }
+    .error {
+      font-size: 12px;
+      color: #e03131;
+      min-height: 15px;
+    }
+    .btn-primary {
+      background: #6d5fff;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 11px 20px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 2px;
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: #5a4ee0; }
+    .btn-primary:active { background: #4a3fcc; }
+    .divider {
+      border: none;
+      border-top: 1px solid #e8e8ec;
+      margin: 28px 0 24px;
+    }
+    .output-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #444;
+      margin-bottom: 8px;
+      display: block;
+    }
+    textarea {
+      font-family: ui-monospace, Consolas, 'Courier New', monospace;
+      font-size: 12.5px;
+      line-height: 1.65;
+      background: #f8f8fb;
+      border: 1px solid #e2e2e6;
+      border-radius: 7px;
+      padding: 14px 16px;
+      color: #222;
+      resize: vertical;
+      width: 100%;
+      display: block;
+    }
+    textarea:focus { outline: none; }
+    .copy-row {
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-secondary {
+      background: #fff;
+      color: #6d5fff;
+      border: 1.5px solid #6d5fff;
+      border-radius: 7px;
+      padding: 8px 18px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-secondary:hover { background: #f0edff; }
+    .copy-note {
+      font-size: 12px;
+      color: #aaa;
+    }
+    @media (max-width: 560px) {
+      .card { padding: 28px 20px; }
+      h1 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>WordPress Admin SQL Generator</h1>
+  <p class="subtitle">Generate SQL to create an admin account — paste directly into phpMyAdmin.</p>
+
+  <form id="form" novalidate>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" placeholder="admin@example.com" autocomplete="off" value="paolo@beardbot.com.au">
+      <span class="error" id="email-err"></span>
+    </div>
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" type="text" placeholder="admin" autocomplete="off" value="paolo">
+      <span class="error" id="username-err"></span>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <div class="pw-wrap">
+        <input id="password" type="password" placeholder="Enter password" autocomplete="new-password" value="B3ardB0t@2026">
+        <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Toggle password visibility">
+          <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <span class="error" id="password-err"></span>
+    </div>
+    <div class="field">
+      <label for="prefix">Database Prefix</label>
+      <input id="prefix" type="text" value="wp_" autocomplete="off">
+      <span class="error" id="prefix-err"></span>
+    </div>
+    <button type="submit" class="btn-primary">Generate SQL</button>
+  </form>
+
+  <div id="output" hidden>
+    <hr class="divider">
+    <label class="output-label" for="sql-out">Generated SQL</label>
+    <textarea id="sql-out" readonly rows="14" spellcheck="false"></textarea>
+    <div class="copy-row">
+      <button type="button" class="btn-secondary" id="copy-btn">Copy to Clipboard</button>
+      <span class="copy-note" id="copy-note"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// MD5 — pure JS implementation, accepts Uint8Array, returns Uint8Array(16)
+// ─────────────────────────────────────────────────────────────────────────────
+function md5(input) {
+  const T = [
+    0xd76aa478,0xe8c7b756,0x242070db,0xc1bdceee,0xf57c0faf,0x4787c62a,0xa8304613,0xfd469501,
+    0x698098d8,0x8b44f7af,0xffff5bb1,0x895cd7be,0x6b901122,0xfd987193,0xa679438e,0x49b40821,
+    0xf61e2562,0xc040b340,0x265e5a51,0xe9b6c7aa,0xd62f105d,0x02441453,0xd8a1e681,0xe7d3fbc8,
+    0x21e1cde6,0xc33707d6,0xf4d50d87,0x455a14ed,0xa9e3e905,0xfcefa3f8,0x676f02d9,0x8d2a4c8a,
+    0xfffa3942,0x8771f681,0x6d9d6122,0xfde5380c,0xa4beea44,0x4bdecfa9,0xf6bb4b60,0xbebfbc70,
+    0x289b7ec6,0xeaa127fa,0xd4ef3085,0x04881d05,0xd9d4d039,0xe6db99e5,0x1fa27cf8,0xc4ac5665,
+    0xf4292244,0x432aff97,0xab9423a7,0xfc93a039,0x655b59c3,0x8f0ccc92,0xffeff47d,0x85845dd1,
+    0x6fa87e4f,0xfe2ce6e0,0xa3014314,0x4e0811a1,0xf7537e82,0xbd3af235,0x2ad7d2bb,0xeb86d391
+  ];
+  const S = [
+    7,12,17,22, 7,12,17,22, 7,12,17,22, 7,12,17,22,
+    5, 9,14,20, 5, 9,14,20, 5, 9,14,20, 5, 9,14,20,
+    4,11,16,23, 4,11,16,23, 4,11,16,23, 4,11,16,23,
+    6,10,15,21, 6,10,15,21, 6,10,15,21, 6,10,15,21
+  ];
+
+  const n = input.length;
+  const bitLen = n * 8;
+  const padLen = n + 1 + ((55 - n) % 64 + 64) % 64 + 8;
+  const buf = new Uint8Array(padLen);
+  buf.set(input);
+  buf[n] = 0x80;
+  const dv = new DataView(buf.buffer);
+  dv.setUint32(padLen - 8, bitLen >>> 0, true);
+  dv.setUint32(padLen - 4, Math.floor(bitLen / 0x100000000), true);
+
+  let a = 0x67452301, b = 0xefcdab89, c = 0x98badcfe, d = 0x10325476;
+
+  for (let o = 0; o < padLen; o += 64) {
+    const m = new Array(16);
+    for (let j = 0; j < 16; j++) m[j] = dv.getUint32(o + j * 4, true);
+
+    let A = a, B = b, C = c, D = d;
+
+    for (let i = 0; i < 64; i++) {
+      let f, g;
+      if      (i < 16) { f = (B & C) | (~B & D);  g = i; }
+      else if (i < 32) { f = (D & B) | (~D & C);  g = (5 * i + 1) % 16; }
+      else if (i < 48) { f = B ^ C ^ D;            g = (3 * i + 5) % 16; }
+      else             { f = C ^ (B | ~D);         g = (7 * i) % 16; }
+      const x = (A + f + T[i] + m[g]) >>> 0;
+      A = D; D = C; C = B;
+      B = (B + ((x << S[i]) | (x >>> (32 - S[i])))) >>> 0;
+    }
+
+    a = (a + A) >>> 0; b = (b + B) >>> 0;
+    c = (c + C) >>> 0; d = (d + D) >>> 0;
+  }
+
+  const out = new Uint8Array(16);
+  const ov = new DataView(out.buffer);
+  ov.setUint32(0, a, true); ov.setUint32(4, b, true);
+  ov.setUint32(8, c, true); ov.setUint32(12, d, true);
+  return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// phpass — WordPress portable password hashing ($P$B... format)
+// Mirrors the PHP phpass library used by WordPress core.
+// COUNT_LOG2=13 matches WordPress's default (iteration_count_log2=8, PHP5+: +5)
+// ─────────────────────────────────────────────────────────────────────────────
+const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+function phpassEncode64(bytes, count) {
+  let out = '', i = 0;
+  do {
+    let v = bytes[i++];
+    out += ITOA64[v & 0x3f];
+    if (i < count) v |= bytes[i] << 8;
+    out += ITOA64[(v >> 6) & 0x3f];
+    if (i++ >= count) break;
+    if (i < count) v |= bytes[i] << 16;
+    out += ITOA64[(v >> 12) & 0x3f];
+    if (i++ >= count) break;
+    out += ITOA64[(v >> 18) & 0x3f];
+  } while (i < count);
+  return out;
+}
+
+function hashPassword(password) {
+  const COUNT_LOG2 = 13;
+  const count = 1 << COUNT_LOG2; // 8192 iterations
+
+  const seed = new Uint8Array(6);
+  crypto.getRandomValues(seed);
+  const salt8 = phpassEncode64(seed, 6); // 8-char salt
+  const setting = '$P$' + ITOA64[COUNT_LOG2] + salt8; // e.g. "$P$B........"
+
+  const enc = new TextEncoder();
+  const saltBytes = enc.encode(salt8);
+  const passBytes = enc.encode(password);
+
+  // Initial hash: md5(salt || password) — raw binary
+  const init = new Uint8Array(saltBytes.length + passBytes.length);
+  init.set(saltBytes);
+  init.set(passBytes, saltBytes.length);
+  let hash = md5(init);
+
+  // Iterate: md5(prev_hash || password), 8192 times
+  for (let i = 0; i < count; i++) {
+    const block = new Uint8Array(16 + passBytes.length);
+    block.set(hash);
+    block.set(passBytes, 16);
+    hash = md5(block);
+  }
+
+  return setting + phpassEncode64(hash, 16); // 12 + 22 = 34 chars
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SQL generation
+// ─────────────────────────────────────────────────────────────────────────────
+function sqlEscape(s) {
+  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function generateSQL(email, username, password, prefix) {
+  const hash = hashPassword(password);
+  const u = sqlEscape(username.trim());
+  const e = sqlEscape(email.trim());
+  const p = prefix.trim();
+
+  return [
+    `INSERT INTO \`${p}users\``,
+    `  (\`user_login\`, \`user_pass\`, \`user_nicename\`, \`user_email\`, \`user_registered\`, \`user_status\`, \`display_name\`)`,
+    `VALUES`,
+    `  ('${u}', '${hash}', '${u}', '${e}', NOW(), '0', '${u}');`,
+    ``,
+    `SET @user_id = LAST_INSERT_ID();`,
+    ``,
+    `INSERT INTO \`${p}usermeta\` (\`user_id\`, \`meta_key\`, \`meta_value\`)`,
+    `  VALUES (@user_id, '${p}capabilities', 'a:1:{s:13:"administrator";b:1;}');`,
+    ``,
+    `INSERT INTO \`${p}usermeta\` (\`user_id\`, \`meta_key\`, \`meta_value\`)`,
+    `  VALUES (@user_id, '${p}user_level', '10');`
+  ].join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI
+// ─────────────────────────────────────────────────────────────────────────────
+const form      = document.getElementById('form');
+const emailEl   = document.getElementById('email');
+const userEl    = document.getElementById('username');
+const passEl    = document.getElementById('password');
+const prefixEl  = document.getElementById('prefix');
+const outputEl  = document.getElementById('output');
+const sqlOutEl  = document.getElementById('sql-out');
+const copyBtn   = document.getElementById('copy-btn');
+const copyNote  = document.getElementById('copy-note');
+const togglePw  = document.getElementById('toggle-pw');
+const eyeIcon   = document.getElementById('eye-icon');
+
+const EYE_OPEN = `
+  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+  <circle cx="12" cy="12" r="3"/>`;
+const EYE_SHUT = `
+  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+  <line x1="1" y1="1" x2="23" y2="23"/>`;
+
+togglePw.addEventListener('click', () => {
+  const hide = passEl.type === 'text';
+  passEl.type = hide ? 'password' : 'text';
+  eyeIcon.innerHTML = hide ? EYE_OPEN : EYE_SHUT;
+});
+
+function setError(id, msg) {
+  document.getElementById(id + '-err').textContent = msg;
+  document.getElementById(id).classList.toggle('invalid', !!msg);
+}
+
+function validate() {
+  let ok = true;
+  const email  = emailEl.value.trim();
+  const user   = userEl.value.trim();
+  const pass   = passEl.value;
+  const prefix = prefixEl.value.trim();
+
+  if (!email)
+    { setError('email', 'Email is required.'); ok = false; }
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    { setError('email', 'Enter a valid email address.'); ok = false; }
+  else
+    setError('email', '');
+
+  if (!user)  { setError('username', 'Username is required.'); ok = false; }
+  else          setError('username', '');
+
+  if (!pass)  { setError('password', 'Password is required.'); ok = false; }
+  else          setError('password', '');
+
+  if (!prefix) { setError('prefix', 'Database prefix is required.'); ok = false; }
+  else           setError('prefix', '');
+
+  return ok;
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  if (!validate()) return;
+  sqlOutEl.value = generateSQL(emailEl.value, userEl.value, passEl.value, prefixEl.value);
+  outputEl.hidden = false;
+  copyBtn.textContent = 'Copy to Clipboard';
+  copyNote.textContent = '';
+  outputEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(sqlOutEl.value).then(() => {
+    copyBtn.textContent = 'Copied!';
+    copyNote.textContent = 'Paste this into the SQL tab in phpMyAdmin.';
+    setTimeout(() => {
+      copyBtn.textContent = 'Copy to Clipboard';
+      copyNote.textContent = '';
+    }, 3000);
+  });
+});
+</script>
+</body>
+</html>
